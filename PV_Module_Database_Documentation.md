@@ -5,6 +5,8 @@
 **Status:** Draft / Ready for Implementation  
 **Owner:** Hans Haufe (Ribeiro das Cabras)
 
+*This schema incorporates several improvements suggested by Claude (Anthropic).*
+
 ---
 
 ## 1. Overview
@@ -37,137 +39,90 @@ The database is designed with the following goals:
 
 ## 3. Database Structure
 
-The database consists of **two tables**:
+The database consists of **four tables**:
 
-1. **`modules`** — Main table containing all panel specifications
-2. **`module_audit_log`** — Audit trail for all changes
+1. `manufacturers` — Lookup table for manufacturers
+2. `modules` — Main table containing core panel specifications
+3. `module_physical` — Physical dimensions and characteristics
+4. `module_audit_log` — Audit trail for all changes
 
-### 3.1 Main Table: `modules`
+### 3.1 Table: `manufacturers`
 
-This is the primary table. Every solar panel entry lives here.
+| Field Name     | Type      | Description                          | Example                  |
+|----------------|-----------|--------------------------------------|--------------------------|
+| `id`           | INTEGER   | Primary key                          | 1                        |
+| `name`         | TEXT      | Manufacturer name (unique)           | "Trina Solar"          |
+| `country`      | TEXT      | Country of origin                    | "China"                |
+| `website`      | TEXT      | Official website                     | https://www.trinasolar.com |
+| `notes`        | TEXT      | Additional notes                     | -                        |
+| `created_at`   | TEXT      | Record creation timestamp            | 2026-06-19T10:00:00Z     |
 
-#### Field Reference
+### 3.2 Table: `modules`
 
-| Field Name                    | Type      | Required | Level          | Description                                                                 | Example                          | Notes / Constraints |
-|-------------------------------|-----------|----------|----------------|-----------------------------------------------------------------------------|----------------------------------|---------------------|
-| `id`                          | INTEGER   | Yes      | All            | Unique identifier                                                           | 12345                            | Primary Key (AUTOINCREMENT) |
-| `manufacturer`                | TEXT      | Yes      | All            | Name of the manufacturer                                                    | "Trina Solar", "JA Solar"        | - |
-| `model`                       | TEXT      | Yes      | All            | Model name / designation                                                    | "TSM-400DE09.08"                 | Combined with manufacturer should be unique |
-| `data_level`                  | TEXT      | Yes      | All            | Completeness tier of the data                                               | "minimal", "optimal", "complete" | CHECK constraint |
-| `p_max`                       | REAL      | No*      | Minimal+       | Maximum power output at STC (Watts)                                         | 400.0                            | *Required for useful calculations |
-| `voc`                         | REAL      | No*      | Minimal+       | Open Circuit Voltage at STC (Volts)                                         | 41.2                             | Critical for string voltage |
-| `isc`                         | REAL      | No*      | Minimal+       | Short Circuit Current at STC (Amps)                                         | 12.8                             | Critical for current limits |
-| `vmp`                         | REAL      | No       | Optimal+       | Voltage at Maximum Power (Volts)                                            | 33.8                             | - |
-| `imp`                         | REAL      | No       | Optimal+       | Current at Maximum Power (Amps)                                             | 11.8                             | - |
-| `temp_coeff_voc`              | REAL      | No       | Optimal+       | Temperature coefficient of Voc (%/°C)                                       | -0.29                            | Negative value |
-| `temp_coeff_isc`              | REAL      | No       | Optimal+       | Temperature coefficient of Isc (%/°C)                                       | 0.05                             | Positive value |
-| `technology`                  | TEXT      | No       | Optimal+       | Cell technology                                                             | "mono-Si", "poly-Si", "HJT"      | Standardized values recommended |
-| `cells_in_series`             | INTEGER   | No       | Optimal+       | Number of cells connected in series                                         | 60, 72, 108, 144                 | Very useful for duplicate detection |
-| `efficiency`                  | REAL      | No       | Complete       | Module efficiency (%)                                                       | 20.5                             | - |
-| `bifacial`                    | INTEGER   | No       | Complete       | Is the module bifacial?                                                     | 0 or 1                           | 1 = bifacial |
-| `bifaciality`                 | REAL      | No       | Complete       | Bifaciality factor                                                          | 0.70                             | Only relevant if bifacial = 1 |
-| `temp_coeff_voc_abs`          | REAL      | No       | Complete       | Absolute temperature coefficient of Voc (V/°C)                              | -0.121                           | From professional databases (SAM/pvlib) |
-| `temp_coeff_isc_abs`          | REAL      | No       | Complete       | Absolute temperature coefficient of Isc (A/°C)                              | 0.0045                           | - |
-| `t_noct`                      | REAL      | No       | Complete       | Nominal Operating Cell Temperature (°C)                                     | 45.5                             | Real-world reference temperature |
-| `ptc_power`                   | REAL      | No       | Complete       | Power under PTC conditions (Watts)                                          | 365.2                            | Optional North American rating |
-| `length_mm`                   | REAL      | No       | Complete       | Module length in millimeters                                                | 1755                             | - |
-| `width_mm`                    | REAL      | No       | Complete       | Module width in millimeters                                                 | 1038                             | - |
-| `height_mm`                   | REAL      | No       | Complete       | Module height/thickness in millimeters                                      | 35                               | - |
-| `weight_kg`                   | REAL      | No       | Complete       | Module weight in kilograms                                                  | 19.5                             | - |
-| `connector_type`              | TEXT      | No       | Complete       | Connector type                                                              | "MC4", "MC4-EVO2"                | - |
-| `datasheet_url`               | TEXT      | No       | Complete       | Link to official datasheet                                                  | https://...                      | - |
-| `warranty_product_years`      | INTEGER   | No       | Complete       | Product warranty in years                                                   | 12                               | - |
-| `warranty_performance_years`  | INTEGER   | No       | Complete       | Performance warranty in years                                               | 25                               | - |
-| `introduced_year`             | INTEGER   | No       | Complete       | Year the model was first introduced                                         | 2022                             | - |
-| `discontinued_year`           | INTEGER   | No       | Complete       | Year production ended (NULL = still active)                                 | 2024 or NULL                     | - |
-| `production_status`           | TEXT      | No       | Complete       | Current production status                                                   | active, discontinued, limited    | CHECK constraint |
-| `source`                      | TEXT      | No       | All            | High-level source of the data                                               | cec, manual, import, user        | - |
-| `source_detail`               | TEXT      | No       | All            | Detailed source information                                                 | "CEC import 2026-06", "datasheet.pdf" | - |
-| `created_by`                  | TEXT      | No       | All            | Who or what created the record                                              | admin, import_script, user:42    | - |
-| `created_at`                  | TEXT      | Yes      | All            | Timestamp when record was created                                           | 2026-06-19T11:45:00Z             | ISO 8601 format |
-| `updated_by`                  | TEXT      | No       | All            | Who last modified the record                                                | admin                            | - |
-| `updated_at`                  | TEXT      | No       | All            | Timestamp of last modification                                              | 2026-06-19T14:22:00Z             | - |
-| `modification_reason`         | TEXT      | No       | All            | Reason for the last modification                                            | "Updated temperature coefficient from new datasheet" | - |
-| `status`                      | TEXT      | Yes      | All            | Current lifecycle status of the record                                      | active, duplicate, merged, archived | CHECK constraint + default 'active' |
-| `merged_into_id`              | INTEGER   | No       | All            | If this is a duplicate, points to the master record                         | 1247                             | Self-referencing FK |
-| `notes`                       | TEXT      | No       | All            | Free-text notes or comments                                                 | "This model has been rebranded"  | - |
-| `extra_data`                  | TEXT      | No       | All            | JSON object for future or uncommon fields                                   | `{"frame_color": "black"}`       | JSON format |
+This is the core table.
 
-### 3.2 Audit Log Table: `module_audit_log`
+#### Key Fields
 
-This table records every significant change to the `modules` table.
+| Field Name                    | Type      | Level          | Description                                                                 | Notes |
+|-------------------------------|-----------|----------|-----------------------------------------------------------------------------|-------|
+| `manufacturer_id`             | INTEGER   | All            | Reference to manufacturers table                                            | Required |
+| `model`                       | TEXT      | All            | Model name                                                                  | Required |
+| `series`                      | TEXT      | All            | Product series / family (e.g. "Maxeon 6", "Tiger Neo")                   | - |
+| `data_level`                  | TEXT      | All            | Data completeness tier                                                      | minimal / optimal / complete |
+| `p_max`, `voc`, `isc`         | REAL      | Minimal+       | Basic electrical specs                                                      | - |
+| `vmp`, `imp`                  | REAL      | Optimal+       | Maximum power point specs                                                   | - |
+| `temp_coeff_voc_pct`          | REAL      | Optimal+       | Temperature coefficient of Voc (%/°C)                                   | - |
+| `temp_coeff_isc_pct`          | REAL      | Optimal+       | Temperature coefficient of Isc (%/°C)                                   | - |
+| `temp_coeff_pmax`             | REAL      | Optimal+       | Temperature coefficient of Pmax (%/°C)                                  | Important for MPPT |
+| `technology`                  | TEXT      | Optimal+       | Cell technology                                                             | Constrained values |
+| `cells_in_series`             | INTEGER   | Optimal+       | Number of cells in series                                                   | Useful for calculations |
+| `efficiency`, `t_noct`        | REAL      | Complete       | Efficiency and NOCT                                                         | - |
+| `introduced_year`             | INTEGER   | Complete       | Year model was introduced                                                   | - |
+| `discontinued_year`           | INTEGER   | Complete       | Year production ended                                                       | NULL = still active |
+| `production_status`           | TEXT      | Complete       | Current production status                                                   | active / discontinued / limited |
+| `status`                      | TEXT      | All            | Record status (for duplicate management)                                    | active / duplicate / merged |
+| `merged_into_id`              | INTEGER   | All            | Points to master record if duplicate                                        | Self-referencing FK |
+| `extra_data`                  | TEXT      | All            | JSON for future fields                                                      | With validation |
 
-| Field          | Type     | Description                                      | Example |
-|----------------|----------|--------------------------------------------------|--------|
-| `id`           | INTEGER  | Primary key                                      | 987    |
-| `module_id`    | INTEGER  | Reference to the affected module                 | 1247   |
-| `action`       | TEXT     | Type of action performed                         | create, update, mark_duplicate, merge |
-| `changed_by`   | TEXT     | Who performed the action                         | admin, duplicate_detection_script |
-| `changed_at`   | TEXT     | When the change occurred                         | 2026-06-19T14:22:00Z |
-| `reason`       | TEXT     | Explanation for the change                       | "Marked as duplicate of record #1247 (99.2% similarity)" |
-| `old_data`     | TEXT     | JSON snapshot of the record before the change    | `{...}` |
-| `new_data`     | TEXT     | JSON snapshot of the record after the change     | `{...}` |
+### 3.3 Table: `module_physical`
+
+Physical characteristics are stored in a dedicated table for better querying and future flexibility.
+
+| Field Name     | Type      | Description                          | Example   |
+|----------------|-----------|--------------------------------------|-----------|
+| `module_id`    | INTEGER   | Reference to modules table           | 1247      |
+| `length_mm`    | REAL      | Length in millimeters                | 1755      |
+| `width_mm`     | REAL      | Width in millimeters                 | 1038      |
+| `height_mm`    | REAL      | Height/thickness in millimeters      | 35        |
+| `weight_kg`    | REAL      | Weight in kilograms                  | 19.5      |
+| `bifacial`     | INTEGER   | Is bifacial? (0/1)                   | 1         |
+| `bifaciality`  | REAL      | Bifaciality factor                   | 0.70      |
+| `connector_type` | TEXT    | Connector type                       | "MC4"   |
+
+### 3.4 Table: `module_audit_log`
+
+Full change history with JSON snapshots.
 
 ---
 
 ## 4. Data Quality Levels
 
-### 4.1 Minimal
-**Purpose:** Quick estimates and basic MPPT calculations when limited data is available.
-
-**Minimum expected fields:** `p_max`, `voc`, `isc`
-
-**Warning:** Temperature coefficient may be estimated. Results should be treated as approximate.
-
-### 4.2 Optimal (Recommended)
-**Purpose:** Reliable MPPT string sizing and system design.
-
-**Key additional fields:** `vmp`, `imp`, real `temp_coeff_voc`, `technology`, `cells_in_series`
-
-This level is the **recommended minimum** for production use in the MPPT calculator.
-
-### 4.3 Complete
-**Purpose:** Full technical reference, advanced modeling, and long-term database value.
-
-Includes all physical dimensions, absolute temperature coefficients, production lifecycle data, NOCT, bifacial information, and documentation links.
+- **Minimal**: Basic electrical data for rough estimates
+- **Optimal**: Recommended level for MPPT sizing
+- **Complete**: Full technical reference including physical specs and lifecycle data
 
 ---
 
-## 5. Duplicate & Version Control Strategy
+## 5. Improvements from Claude
 
-- Records are **never hard deleted**.
-- When a near-duplicate is detected (via script):
-  - The new record is marked with `status = 'duplicate'`
-  - `merged_into_id` points to the master (active) record
-- The audit log records the decision and similarity score.
-- This approach preserves all historical data while keeping the active dataset clean.
+Several improvements in this version were inspired by suggestions from Claude:
 
----
-
-## 6. Future-Proofing
-
-- New specifications should first be added to the `extra_data` JSON column.
-- Only promote fields to dedicated columns once they become commonly used across many records.
-- The `data_level` system allows gradual improvement of data quality over time.
+- Separate `manufacturers` table
+- Dedicated `module_physical` table
+- Addition of `temp_coeff_pmax`
+- Clearer temperature coefficient naming
+- JSON validation on extensible fields
 
 ---
 
-## 7. Usage Guidelines
-
-- Always populate `data_level` correctly.
-- Prefer `optimal` or `complete` data when available for MPPT calculations.
-- Use the audit log to understand the history of any record.
-- When importing data, always record the `source` and `created_by`.
-
----
-
-## 8. Technical Notes
-
-- **Database Engine:** SQLite 3
-- **JSON Support:** Uses SQLite JSON1 extension (available since 2015)
-- **Date Format:** ISO 8601 (UTC) recommended for all timestamps
-- **Unique Constraint:** `(manufacturer, model)` prevents exact duplicates on insert
-
----
-
-*This documentation should be updated whenever the schema changes.*
+*This documentation should be updated with every schema change.*
