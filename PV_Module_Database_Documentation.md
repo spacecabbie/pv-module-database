@@ -7,9 +7,10 @@
 
 ## Credits
 
-- **Overall database design:** HHaufe
-- **Detailed technical schema structure:** AI Grok and Claude
-- **Technology aliases concept:** Suggested by HHaufe
+- **Overall database design and strategic direction:** HHaufe
+- **Technology aliases system** (canonical technical name + support for common/marketing aliases): Suggested and driven by HHaufe
+- **Decision to keep physical dimensions directly in the `modules` table** (instead of a separate table): HHaufe
+- **Detailed technical schema structure, refinements, and implementation:** AI Grok (with additional input from Claude)
 
 ---
 
@@ -109,16 +110,16 @@ The database consists of **four tables**:
 | `datasheet_url`               | TEXT      | Complete       | Link to official datasheet                                                  | - |
 | `warranty_product_years`      | INTEGER   | Complete       | Product warranty in years                                                   | - |
 | `warranty_performance_years`  | INTEGER   | Complete       | Performance warranty in years                                               | - |
-| `introduced_year`             | INTEGER   | Complete       | Year the model was first introduced                                         | - |
+| `introduced_year`             | INTEGER   | Complete       | Year model was first introduced                                             | - |
 | `discontinued_year`           | INTEGER   | Complete       | Year production ended (NULL = still active)                                 | - |
 | `production_status`           | TEXT      | Complete       | Current production status                                                   | active / discontinued / limited / unknown |
 | `status`                      | TEXT      | All            | Record status for duplicate management                                      | active / duplicate / merged / archived |
-| `merged_into_id`              | INTEGER   | All            | Points to master record if this is a duplicate                              | Self-referencing FK |
+| `merged_into_id`              | INTEGER   | All            | Points to master record if duplicate                                        | Self-referencing FK |
 | `extra_data`                  | TEXT      | All            | JSON for future or uncommon fields                                          | With validation |
 
 ### 3.4 Table: `module_audit_log`
 
-Full change history. Includes `table_name` to support auditing multiple tables in the future.
+Full change history with JSON snapshots. Includes `table_name` to support auditing multiple tables in the future.
 
 | Field Name     | Type      | Description                                      |
 |----------------|-----------|--------------------------------------------------|
@@ -135,16 +136,16 @@ Full change history. Includes `table_name` to support auditing multiple tables i
 
 ## 4. Data Quality Levels
 
-- **Minimal**: Basic electrical data (`p_max`, `voc`, `isc`) for rough estimates
+- **Minimal**: Basic electrical data for rough estimates
 - **Optimal**: Recommended level for reliable MPPT sizing
-- **Complete**: Full technical reference, including physical specs and production lifecycle
+- **Complete**: Full technical reference, including physical specs and lifecycle data
 
 ---
 
 ## 5. Key Design Decisions
 
 - **Physical dimensions**: Stored directly in the `modules` table (decision by HHaufe) to simplify filtering and querying.
-- **Technology handling**: Uses a canonical name in `technologies` + support for common aliases via `technology_aliases` (suggested by HHaufe).
+- **Technology handling**: Uses a canonical technical name in `technologies` + support for common aliases via `technology_aliases` (suggested and driven by HHaufe).
 - **Module certificates**: Deferred to a future version.
 - **Audit strategy**: One central audit log with `table_name` for future scalability.
 
