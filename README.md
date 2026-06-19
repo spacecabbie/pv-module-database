@@ -2,33 +2,26 @@
 
 **Version 0.1**
 
-A structured, versioned database of photovoltaic (solar) module specifications designed primarily to support MPPT charge controller sizing calculations.
+A structured, versioned database of photovoltaic (solar) module specifications.
 
-## Contents
+Designed to support MPPT charge controller sizing tools with different data quality levels, full audit logging, and smart duplicate management.
+
+## Repository Contents
 
 - [Documentation](PV_Module_Database_Documentation.md)
-- [Schema (SQLite)](schema_v0.1.sql)
+- [SQLite Schema v0.1](schema_v0.1.sql)
+
+## Quick Links
+
+- Full Documentation: [PV_Module_Database_Documentation.md](PV_Module_Database_Documentation.md)
+- Schema: [schema_v0.1.sql](schema_v0.1.sql)
 
 ## Features
 
-- Three data quality levels: Minimal, Optimal, Complete
-- Full audit logging and change history
-- Intelligent duplicate management (link instead of delete)
-- Future-proof design with JSON extensibility
-- Production lifecycle tracking (introduced/discontinued)
+- Three data tiers: Minimal, Optimal, Complete
+- Complete audit trail
+- Duplicate linking (no data loss)
+- Production lifecycle tracking
+- Future-proof with JSON extensibility
 
-## Quick Start
-
-```bash
-git clone https://github.com/spacecabbie/pv-module-database.git
-```
-
-Then import `schema_v0.1.sql` into SQLite.
-
-## License
-
-To be decided. Currently for personal and collaborative development use.
-
----
-
-Maintained by Hans Haufe (@spacecabbie)
+Maintained by @spacecabbie
