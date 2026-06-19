@@ -5,10 +5,6 @@
 **Status:** Draft / Ready for Implementation  
 **Owner:** Hans Haufe
 
-*This schema incorporates several improvements suggested by Claude (Anthropic).*
-
----
-
 ## Credits
 
 - **Overall database design:** HHaufe
