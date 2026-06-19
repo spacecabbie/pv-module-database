@@ -9,6 +9,7 @@
 
 - **Overall database design:** HHaufe
 - **Detailed technical schema structure:** AI Grok and Claude
+- **Technology aliases concept:** Suggested by HHaufe
 
 ---
 
@@ -24,6 +25,8 @@ The database is designed with the following goals:
 - Handle duplicates intelligently without data loss
 - Remain future-proof and easy to extend
 - Follow professional database design practices
+
+**Note:** This schema was intentionally designed to be solid from the beginning, with the goal of minimizing the need for major changes in future versions.
 
 ---
 
@@ -45,8 +48,8 @@ The database is designed with the following goals:
 The database consists of **four tables**:
 
 1. `manufacturers` — Lookup table for manufacturers
-2. `modules` — Main table containing core panel specifications
-3. `module_physical` — Physical dimensions and characteristics
+2. `technologies` + `technology_aliases` — Technology classification with support for common names/aliases
+3. `modules` — Main table containing core panel specifications (including physical dimensions)
 4. `module_audit_log` — Audit trail for all changes
 
 ### 3.1 Table: `manufacturers`
@@ -60,9 +63,30 @@ The database consists of **four tables**:
 | `notes`        | TEXT      | Additional notes                     | -                        |
 | `created_at`   | TEXT      | Record creation timestamp            | 2026-06-19T10:00:00Z     |
 
-### 3.2 Table: `modules`
+### 3.2 Tables: `technologies` and `technology_aliases`
 
-This is the core table.
+**Design decision by HHaufe:** The `technology` field uses a canonical technical name, while common or marketing names are supported through aliases.
+
+#### `technologies` table
+
+| Field Name     | Type      | Description                              |
+|----------------|-----------|------------------------------------------|
+| `id`           | INTEGER   | Primary key                              |
+| `name`         | TEXT      | Canonical technical name (e.g. 'TOPCon') |
+| `category`     | TEXT      | Broad category (e.g. 'mono-Si')          |
+| `description`  | TEXT      | Optional description                     |
+
+#### `technology_aliases` table
+
+| Field Name      | Type      | Description                                      |
+|-----------------|-----------|--------------------------------------------------|
+| `technology_id` | INTEGER   | Reference to technologies table                  |
+| `alias`         | TEXT      | Common or marketing name (e.g. 'N-type TOPCon')  |
+| `is_primary`    | BOOLEAN   | Whether this is the preferred display name       |
+
+### 3.3 Table: `modules`
+
+**Note on physical dimensions:** Per decision by HHaufe, physical dimensions (`length_mm`, `width_mm`, `height_mm`, `weight_kg`) are stored directly in the `modules` table rather than in a separate table. This simplifies querying and filtering.
 
 #### Key Fields
 
@@ -70,61 +94,59 @@ This is the core table.
 |-------------------------------|-----------|----------|-----------------------------------------------------------------------------|-------|
 | `manufacturer_id`             | INTEGER   | All            | Reference to manufacturers table                                            | Required |
 | `model`                       | TEXT      | All            | Model name                                                                  | Required |
-| `series`                      | TEXT      | All            | Product series / family (e.g. "Maxeon 6", "Tiger Neo")                   | - |
+| `series`                      | TEXT      | All            | Product series / family                                                     | - |
 | `data_level`                  | TEXT      | All            | Data completeness tier                                                      | minimal / optimal / complete |
 | `p_max`, `voc`, `isc`         | REAL      | Minimal+       | Basic electrical specs                                                      | - |
 | `vmp`, `imp`                  | REAL      | Optimal+       | Maximum power point specs                                                   | - |
 | `temp_coeff_voc_pct`          | REAL      | Optimal+       | Temperature coefficient of Voc (%/°C)                                   | - |
 | `temp_coeff_isc_pct`          | REAL      | Optimal+       | Temperature coefficient of Isc (%/°C)                                   | - |
-| `temp_coeff_pmax`             | REAL      | Optimal+       | Temperature coefficient of Pmax (%/°C)                                  | Important for MPPT |
-| `technology`                  | TEXT      | Optimal+       | Cell technology                                                             | Constrained values |
-| `cells_in_series`             | INTEGER   | Optimal+       | Number of cells in series                                                   | Useful for calculations |
+| `temp_coeff_pmax`             | REAL      | Optimal+       | Temperature coefficient of Pmax (%/°C)                                  | Important for MPPT calculations |
+| `technology_id`               | INTEGER   | Optimal+       | Reference to technologies table                                             | - |
+| `cells_in_series`             | INTEGER   | Optimal+       | Number of cells in series                                                   | Useful for calculations and duplicate detection |
 | `efficiency`, `t_noct`        | REAL      | Complete       | Efficiency and NOCT                                                         | - |
-| `introduced_year`             | INTEGER   | Complete       | Year model was introduced                                                   | - |
-| `discontinued_year`           | INTEGER   | Complete       | Year production ended                                                       | NULL = still active |
-| `production_status`           | TEXT      | Complete       | Current production status                                                   | active / discontinued / limited |
-| `status`                      | TEXT      | All            | Record status (for duplicate management)                                    | active / duplicate / merged |
-| `merged_into_id`              | INTEGER   | All            | Points to master record if duplicate                                        | Self-referencing FK |
-| `extra_data`                  | TEXT      | All            | JSON for future fields                                                      | With validation |
-
-### 3.3 Table: `module_physical`
-
-Physical characteristics are stored in a dedicated table for better querying and future flexibility.
-
-| Field Name     | Type      | Description                          | Example   |
-|----------------|-----------|--------------------------------------|-----------|
-| `module_id`    | INTEGER   | Reference to modules table           | 1247      |
-| `length_mm`    | REAL      | Length in millimeters                | 1755      |
-| `width_mm`     | REAL      | Width in millimeters                 | 1038      |
-| `height_mm`    | REAL      | Height/thickness in millimeters      | 35        |
-| `weight_kg`    | REAL      | Weight in kilograms                  | 19.5      |
-| `bifacial`     | INTEGER   | Is bifacial? (0/1)                   | 1         |
-| `bifaciality`  | REAL      | Bifaciality factor                   | 0.70      |
-| `connector_type` | TEXT    | Connector type                       | "MC4"   |
+| `length_mm`, `width_mm`, `height_mm`, `weight_kg` | REAL | Complete | Physical dimensions and weight                                              | Stored in modules table per design decision |
+| `connector_type`              | TEXT      | Complete       | Connector type                                                              | - |
+| `datasheet_url`               | TEXT      | Complete       | Link to official datasheet                                                  | - |
+| `warranty_product_years`      | INTEGER   | Complete       | Product warranty in years                                                   | - |
+| `warranty_performance_years`  | INTEGER   | Complete       | Performance warranty in years                                               | - |
+| `introduced_year`             | INTEGER   | Complete       | Year the model was first introduced                                         | - |
+| `discontinued_year`           | INTEGER   | Complete       | Year production ended (NULL = still active)                                 | - |
+| `production_status`           | TEXT      | Complete       | Current production status                                                   | active / discontinued / limited / unknown |
+| `status`                      | TEXT      | All            | Record status for duplicate management                                      | active / duplicate / merged / archived |
+| `merged_into_id`              | INTEGER   | All            | Points to master record if this is a duplicate                              | Self-referencing FK |
+| `extra_data`                  | TEXT      | All            | JSON for future or uncommon fields                                          | With validation |
 
 ### 3.4 Table: `module_audit_log`
 
-Full change history with JSON snapshots.
+Full change history. Includes `table_name` to support auditing multiple tables in the future.
+
+| Field Name     | Type      | Description                                      |
+|----------------|-----------|--------------------------------------------------|
+| `module_id`    | INTEGER   | Reference to the affected module                 |
+| `table_name`   | TEXT      | Which table the change occurred in               |
+| `action`       | TEXT      | Type of action (`insert`, `update`, `merge`, `archive`) |
+| `changed_by`   | TEXT      | Who performed the change                         |
+| `changed_at`   | TEXT      | Timestamp of change                              |
+| `reason`       | TEXT      | Explanation for the change                       |
+| `old_data`     | TEXT      | JSON snapshot before change                      |
+| `new_data`     | TEXT      | JSON snapshot after change                       |
 
 ---
 
 ## 4. Data Quality Levels
 
-- **Minimal**: Basic electrical data for rough estimates
-- **Optimal**: Recommended level for MPPT sizing
-- **Complete**: Full technical reference including physical specs and lifecycle data
+- **Minimal**: Basic electrical data (`p_max`, `voc`, `isc`) for rough estimates
+- **Optimal**: Recommended level for reliable MPPT sizing
+- **Complete**: Full technical reference, including physical specs and production lifecycle
 
 ---
 
-## 5. Improvements from Claude
+## 5. Key Design Decisions
 
-Several improvements in this version were inspired by suggestions from Claude:
-
-- Separate `manufacturers` table
-- Dedicated `module_physical` table
-- Addition of `temp_coeff_pmax`
-- Clearer temperature coefficient naming
-- JSON validation on extensible fields
+- **Physical dimensions**: Stored directly in the `modules` table (decision by HHaufe) to simplify filtering and querying.
+- **Technology handling**: Uses a canonical name in `technologies` + support for common aliases via `technology_aliases` (suggested by HHaufe).
+- **Module certificates**: Deferred to a future version.
+- **Audit strategy**: One central audit log with `table_name` for future scalability.
 
 ---
 
