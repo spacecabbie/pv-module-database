@@ -1,0 +1,1 @@
+Merged constraints and indexes content
