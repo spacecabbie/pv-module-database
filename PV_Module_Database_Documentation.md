@@ -3,9 +3,16 @@
 **Version:** 0.1  
 **Date:** 2026-06-19  
 **Status:** Draft / Ready for Implementation  
-**Owner:** Hans Haufe (Ribeiro das Cabras)
+**Owner:** Hans Haufe
 
 *This schema incorporates several improvements suggested by Claude (Anthropic).*
+
+---
+
+## Credits
+
+- **Overall database design:** HHaufe
+- **Detailed technical schema structure:** AI Grok and Claude
 
 ---
 
